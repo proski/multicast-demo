@@ -1,8 +1,9 @@
 use anyhow::Result;
 use socket2::{Domain, Socket, Type};
+use std::io::IoSlice;
 use std::net::{IpAddr, Ipv4Addr, SocketAddr, UdpSocket};
-use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
 use std::time::Duration;
 use std::{str, thread};
 use tracing::info;
@@ -64,14 +65,16 @@ fn receiver2(running: Arc<AtomicBool>) -> Result<()> {
 }
 
 fn sender() -> Result<()> {
-    let socket = UdpSocket::bind(TX_SOCKADDR)?;
+    let socket = Socket::new(Domain::IPV4, Type::DGRAM, None)?;
+    socket.bind(&TX_SOCKADDR.into())?;
 
     for i in 1..=10 {
         let multicast_addr: Ipv4Addr = format!("239.0.0.{i}").as_str().parse()?;
         let multicast_sockaddr: SocketAddr = (multicast_addr, PORT).into();
         let packet_contents = format!("packet {i}");
+        let slices = &[IoSlice::new(packet_contents.as_bytes())];
         info!(?packet_contents, %multicast_addr, "sending");
-        socket.send_to(packet_contents.as_bytes(), multicast_sockaddr)?;
+        socket.send_to_vectored(slices, &multicast_sockaddr.into())?;
         thread::sleep(Duration::from_millis(200));
     }
     Ok(())
