@@ -64,11 +64,7 @@ fn receiver2(running: Arc<AtomicBool>) -> Result<()> {
 }
 
 fn sender() -> Result<()> {
-    let socket = Socket::new(Domain::IPV4, Type::DGRAM, None)?;
-    socket.bind(&TX_SOCKADDR.into())?;
-    socket.set_multicast_if_v4(&TX_ADDRESS)?;
-
-    let socket: UdpSocket = socket.into();
+    let socket = UdpSocket::bind(TX_SOCKADDR)?;
 
     for i in 1..=10 {
         let multicast_addr: Ipv4Addr = format!("239.0.0.{i}").as_str().parse()?;
@@ -83,8 +79,6 @@ fn sender() -> Result<()> {
 
 fn main() {
     tracing_subscriber::fmt::init();
-
-    info!("multicast-demo is starting");
 
     let running = Arc::new(AtomicBool::new(true));
 
