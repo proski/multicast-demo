@@ -3,8 +3,8 @@ use socket2::{Domain, Socket, Type};
 use std::net::{SocketAddr, UdpSocket};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::thread;
 use std::time::Duration;
+use std::{str, thread};
 use tracing::info;
 
 fn receiver1(running: Arc<AtomicBool>) -> Result<()> {
@@ -23,7 +23,8 @@ fn receiver1(running: Arc<AtomicBool>) -> Result<()> {
         let Ok(packet_size) = packet_size else {
             continue;
         };
-        info!(?packet_size, "receiver 1");
+        let data = str::from_utf8(&buffer[0..packet_size])?;
+        info!(?data, "receiver 1");
     }
     Ok(())
 }
@@ -34,23 +35,19 @@ fn receiver2(_running: Arc<AtomicBool>) -> Result<()> {
 
 fn sender() -> Result<()> {
     let socket = Socket::new(Domain::IPV4, Type::DGRAM, None)?;
-    let local_address: SocketAddr = "127.0.123.1:0".parse()?;
+    let local_address: SocketAddr = "127.0.123.2:0".parse()?;
     let remote_address: SocketAddr = "127.0.123.1:12345".parse()?;
-    socket.set_reuse_address(true)?;
-    socket.set_multicast_all_v4(false)?;
-    socket.set_write_timeout(Some(Duration::from_millis(50)))?;
     socket.bind(&local_address.into())?;
     socket.connect(&remote_address.into())?;
+    socket.set_multicast_if_v4(&"127.0.123.2".parse()?)?;
 
     let socket: UdpSocket = socket.into();
 
-    for _i in 0..10 {
-        let packet_size = socket.send(b"data");
-        let Ok(packet_size) = packet_size else {
-            continue;
-        };
+    for i in 0..10 {
+        let packet_contents = format!("packet {i}");
+        info!(?packet_contents, "sender");
+        socket.send(packet_contents.as_bytes())?;
         thread::sleep(Duration::from_millis(200));
-        info!(?packet_size, "sender");
     }
     Ok(())
 }
