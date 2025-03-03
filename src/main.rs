@@ -1,7 +1,6 @@
 use anyhow::Result;
 use socket2::{Domain, Socket, Type};
-use std::net::SocketAddr;
-use std::net::UdpSocket;
+use std::net::{SocketAddr, UdpSocket};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::thread;
@@ -33,7 +32,7 @@ fn receiver2(_running: Arc<AtomicBool>) -> Result<()> {
     Ok(())
 }
 
-fn sender(running: Arc<AtomicBool>) -> Result<()> {
+fn sender() -> Result<()> {
     let socket = Socket::new(Domain::IPV4, Type::DGRAM, None)?;
     let local_address: SocketAddr = "127.0.123.1:0".parse()?;
     let remote_address: SocketAddr = "127.0.123.1:12345".parse()?;
@@ -45,7 +44,7 @@ fn sender(running: Arc<AtomicBool>) -> Result<()> {
 
     let socket: UdpSocket = socket.into();
 
-    while running.load(Ordering::Relaxed) {
+    for _i in 0..10 {
         let packet_size = socket.send(b"data");
         let Ok(packet_size) = packet_size else {
             continue;
@@ -64,20 +63,28 @@ fn main() {
     let running = Arc::new(AtomicBool::new(true));
 
     thread::scope(|scope| {
+        // Start the receivers
         let running_clone = Arc::clone(&running);
         let receiver1_handle = scope.spawn(move || receiver1(running_clone));
         let running_clone = Arc::clone(&running);
         let receiver2_handle = scope.spawn(move || receiver2(running_clone));
-        thread::sleep(Duration::from_secs(1));
-        let running_clone = Arc::clone(&running);
-        let sender_handle = scope.spawn(move || sender(running_clone));
 
-        thread::sleep(Duration::from_secs(1));
+        // Wait for the receivers to initialize
+        thread::sleep(Duration::from_millis(500));
+
+        // Run the sender
+        let sender_result = sender();
+
+        // Give the receivers time to process the traffic
+        thread::sleep(Duration::from_millis(500));
+
+        // Tell the receivers to stop
         running.store(false, Ordering::Relaxed);
 
         let receiver1_result = receiver1_handle.join();
         let receiver2_result = receiver2_handle.join();
-        let sender_result = sender_handle.join();
+
+        // Log the results of receivers and sender
         info!(?receiver1_result, ?receiver2_result, ?sender_result);
     });
 }
