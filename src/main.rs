@@ -10,7 +10,7 @@ use tracing::info;
 const RX_ADDRESS: Ipv4Addr = Ipv4Addr::new(127, 0, 123, 1);
 const TX_ADDRESS: Ipv4Addr = Ipv4Addr::new(127, 0, 123, 2);
 const PORT: u16 = 12345;
-const RX_SOCKADDR: SocketAddr = SocketAddr::new(IpAddr::V4(RX_ADDRESS), PORT);
+const RX_SOCKADDR: SocketAddr = SocketAddr::new(IpAddr::V4(Ipv4Addr::UNSPECIFIED), PORT);
 const TX_SOCKADDR: SocketAddr = SocketAddr::new(IpAddr::V4(TX_ADDRESS), 0u16);
 
 fn receiver1(running: Arc<AtomicBool>) -> Result<()> {
